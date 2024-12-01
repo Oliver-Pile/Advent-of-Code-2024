@@ -12,6 +12,19 @@ defmodule Aoc2024.Day1 do
     |> Enum.sum()
   end
 
+  def part2() do
+    {left, right} = extract_lists()
+
+    right_occurances = Enum.frequencies(right)
+
+    Enum.map(left, fn val ->
+      occurance = Map.get(right_occurances, val, 0)
+
+      val * occurance
+    end)
+    |> Enum.sum()
+  end
+
   defp extract_lists() do
     Aoc2024.get_file_lines("./input/day1.txt")
     |> Enum.reduce({[], []}, fn line, {left, right} ->
