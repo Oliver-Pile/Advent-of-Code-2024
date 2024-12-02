@@ -4,100 +4,73 @@ defmodule Aoc2024.Day2 do
     |> Enum.map(fn line ->
       String.split(line, ~r/\s+/) |> Enum.map(&String.to_integer/1)
     end)
-    |> check_all_increasing_decreasing()
-    |> check_differences()
-    |> length()
-  end
-
-  defp check_all_increasing_decreasing(lines) do
-    Enum.filter(lines, fn line ->
-      sorted = Enum.sort(line)
-
-      line == sorted or line == Enum.reverse(sorted)
+    |> Enum.map(&check_line_ok/1)
+    |> Enum.count(fn {status, _} ->
+      status
     end)
   end
 
-  defp check_differences(lines) do
-    Enum.filter(lines, fn line ->
-      Enum.chunk_every(line, 2, 1, :discard)
-      |> Enum.map(fn [x, y] ->
-        abs(x - y)
-      end)
-      |> Enum.all?(&(&1 >= 1 and &1 <= 3))
+  defp check_line_ok(line) do
+    all_incr_decr? = check_all_increasing_decreasing(line)
+    all_good_diff? = check_differences(line)
+
+    status = all_incr_decr? and all_good_diff?
+    {status, line}
+  end
+
+  defp check_all_increasing_decreasing(line) do
+    sorted = Enum.sort(line)
+
+    line == sorted or line == Enum.reverse(sorted)
+  end
+
+  defp check_differences(line) do
+    Enum.chunk_every(line, 2, 1, :discard)
+    |> Enum.map(fn [x, y] ->
+      abs(x - y)
     end)
+    |> Enum.all?(&(&1 >= 1 and &1 <= 3))
   end
 
   # Initial thinking was to go through and first alter the list of levels to remove any with issues.
+  # Had to go in the end of checking them all first, then filtering out the failed. With this failed list...
+  # go through and try deleting each level one by one until it either was ok or ran out of elements.
+  # Thanks to Ben's code for the suggestion :)
   def part2() do
     lines =
-      Aoc2024.get_file_lines("./input/test.txt")
+      Aoc2024.get_file_lines("./input/day2.txt")
       |> Enum.map(fn line ->
         String.split(line, ~r/\s+/) |> Enum.map(&String.to_integer/1)
       end)
+      |> Enum.map(&check_line_ok/1)
 
-    Enum.map(lines, fn line ->
-      chunked = Enum.chunk_every(line, 2, 1, :discard)
-      dir = check_dir(chunked)
+    good_count =
+      Enum.filter(lines, fn {status, _} -> status end)
+      |> length()
 
-      {removed?, new_line} =
-        check_direction_maybe_remove(line, chunked, dir) |> IO.inspect(charlists: :as_lists)
+    bad_lines =
+      Enum.filter(lines, fn {status, _} -> status == false end)
+      |> Enum.map(fn {_, line} -> line end)
 
-      if removed? do
-        new_line
-      else
-        check_differences_and_maybe_remove(new_line)
-      end
-    end)
-    |> IO.inspect(charlists: :as_lists)
-    |> check_all_increasing_decreasing()
-    |> check_differences()
-    |> length()
-  end
+    bad_now_ok_count =
+      Enum.filter(bad_lines, fn line ->
+        length = length(line)
 
-  defp check_differences_and_maybe_remove(new_line) do
-    Enum.chunk_every(new_line, 2, 1, :discard)
-    |> Enum.find_index(fn [x, y] ->
-      diff = abs(y - x)
-      diff < 1 or diff > 3
-    end)
-    |> case do
-      nil -> new_line
-      index -> List.delete_at(new_line, index + 1)
-    end
-  end
+        ok_or_line =
+          Enum.reduce_while(0..(length - 1), line, fn index, acc ->
+            {line_ok, _} = check_line_ok(List.delete_at(acc, index))
 
-  defp check_direction_maybe_remove(line, chunked, :asc) do
-    chunked
-    |> Enum.find_index(fn [x, y] ->
-      y < x
-    end)
-    |> case do
-      nil -> {false, line}
-      index -> {true, List.delete_at(line, index)}
-    end
-  end
+            if line_ok do
+              {:halt, :ok}
+            else
+              {:cont, line}
+            end
+          end)
 
-  defp check_direction_maybe_remove(line, chunked, :desc) do
-    chunked
-    |> Enum.find_index(fn [x, y] ->
-      y > x
-    end)
-    |> case do
-      nil -> {false, line}
-      index -> {true, List.delete_at(line, index)}
-    end
-  end
-
-  defp check_dir(chunked) do
-    diffs =
-      chunked
-      |> Enum.map(fn [x, y] ->
-        y - x
+        ok_or_line == :ok
       end)
+      |> length()
 
-    incr = Enum.count(diffs, &(&1 > 0))
-    decr = Enum.count(diffs, &(&1 < 0))
-
-    if incr > decr, do: :asc, else: :desc
+    good_count + bad_now_ok_count
   end
 end
