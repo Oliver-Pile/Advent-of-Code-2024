@@ -33,6 +33,29 @@ defmodule Aoc2024.Day4 do
     end
   end
 
+  # Whilst part 2 was my own design, it obviously uses some of the logic from part 1 so see the repo linked there.
+  def part2() do
+    word_map = get_word_map()
+
+    for y <- 0..(map_size(word_map) - 1), x <- 0..(map_size(word_map[y]) - 1) do
+      find_count_2(word_map, {x, y})
+    end
+    |> Enum.sum()
+  end
+
+  defp find_count_2(map, {x, y}) do
+    if map[y][x] == "A" do
+      with ["M", "S"] <- Enum.sort([map[y + 1][x + 1], map[y - 1][x - 1]]),
+           ["M", "S"] <- Enum.sort([map[y + 1][x - 1], map[y - 1][x + 1]]) do
+        1
+      else
+        _ -> 0
+      end
+    else
+      0
+    end
+  end
+
   defp get_word_map() do
     Aoc2024.get_file_lines("./input/day4.txt")
     |> Enum.with_index()
