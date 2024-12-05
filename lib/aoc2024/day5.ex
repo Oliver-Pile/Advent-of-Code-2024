@@ -1,5 +1,5 @@
 defmodule Aoc2024.Day5 do
-  @path "./input/test.txt"
+  @path "./input/day5.txt"
   def part1() do
     file_str = File.read!(@path)
 
@@ -12,61 +12,6 @@ defmodule Aoc2024.Day5 do
     mid_points = find_mid_values(good_updates)
 
     Enum.sum(mid_points)
-  end
-
-  def part2() do
-    file_str = File.read!(@path)
-
-    lines = get_split_lines()
-
-    rules = extract_rule(file_str)
-
-    bad_updates = find_bad_updates(rules, lines)
-
-    sort_updates(bad_updates, rules) |> IO.inspect()
-  end
-
-  defp sort_updates(bad_updates, rules) do
-    # For each element, if in correct place, check the rest
-    # if not in correct place then swap with the next element and the check rest
-    Enum.map(bad_updates, fn update ->
-      check_bad_update(rules, Enum.reverse(update))
-    end)
-  end
-
-  defp check_bad_update(_rules, current) when length(current) == 1 do
-    current
-  end
-
-  # Need to go backwards
-  defp check_bad_update(rules, [current | [next | rest] = all_rest]) do
-    IO.inspect(current, label: :current)
-    IO.inspect(next, label: :next)
-    IO.inspect(rest, label: :rest)
-    after_numbers = Map.get(rules, current, []) |> IO.inspect(label: :afters)
-
-    cond do
-      after_numbers == [] ->
-        check_bad_update(rules, all_rest)
-
-      Enum.any?(after_numbers, &(&1 in rest)) ->
-        new_update = [next, current] ++ rest
-        check_bad_update(rules, new_update)
-
-      true ->
-        check_bad_update(rules, all_rest)
-    end
-
-    cond do
-      [] ->
-        check_bad_update(rules, all_rest)
-
-      Enum.any?(after_numbers, &(&1 in all_rest)) ->
-        check_bad_update(rules, all_rest)
-
-      true ->
-        nil
-    end
   end
 
   defp get_split_lines() do
@@ -88,12 +33,6 @@ defmodule Aoc2024.Day5 do
     end)
   end
 
-  defp find_bad_updates(rules, lines) do
-    Enum.reject(lines, fn line ->
-      check_update(rules, Enum.reverse(line))
-    end)
-  end
-
   defp check_update(_rules, current) when length(current) == 1 do
     true
   end
@@ -111,5 +50,53 @@ defmodule Aoc2024.Day5 do
   defp extract_rule(str) do
     Regex.scan(~r/(\d+)\|(\d+)/m, str, capture: :all_but_first)
     |> Enum.group_by(fn [bef, _aft] -> bef end, fn [_bef, aft] -> aft end)
+  end
+
+  def part2() do
+    file_str = File.read!(@path)
+
+    lines = get_split_lines()
+
+    rules = extract_rule(file_str)
+
+    bad_updates = find_bad_updates(rules, lines)
+
+    sorted_updates = sort_updates(bad_updates, rules)
+
+    mid_points = find_mid_values(sorted_updates)
+
+    Enum.sum(mid_points)
+  end
+
+  defp find_bad_updates(rules, lines) do
+    Enum.reject(lines, fn line ->
+      check_update(rules, Enum.reverse(line))
+    end)
+  end
+
+  defp sort_updates(bad_updates, rules) do
+    Enum.map(bad_updates, fn update ->
+      check_bad_update(rules, Enum.reverse(update), []) |> List.flatten()
+    end)
+  end
+
+  defp check_bad_update(_rules, current, good_elements) when length(current) == 1 do
+    [current | good_elements]
+  end
+
+  defp check_bad_update(rules, [current | rest], good_elements) do
+    after_numbers = Map.get(rules, current, [])
+
+    cond do
+      after_numbers == [] ->
+        check_bad_update(rules, rest, [current | good_elements])
+
+      Enum.any?(after_numbers, &(&1 in rest)) ->
+        new_update = List.flatten([rest, current])
+        check_bad_update(rules, new_update, good_elements)
+
+      true ->
+        check_bad_update(rules, rest, [current | good_elements])
+    end
   end
 end
